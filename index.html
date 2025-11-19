@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clasificadores IA - Instrumentos y Texto</title>
+
+<!-- TensorFlow.js -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+
+<style>
+    :root {
+        --bg: #f5f5f7;
+        --card: #ffffff;
+        --text: #222;
+        --accent: #0078ff;
+        --accent2: #ff6b35;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg: #121212;
+            --card: #1e1e1e;
+            --text: #e5e5e5;
+            --accent: #4aa3ff;
+            --accent2: #ff8c61;
+        }
+    }
+
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 30px 20px;
+        min-height: 100vh;
+    }
+
+    h1 {
+        font-size: 32px;
+        margin-bottom: 10px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+
+    .subtitle {
+        font-size: 16px;
+        color: var(--text);
+        opacity: 0.7;
+        margin-bottom: 30px;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+        background: var(--card);
+        padding: 5px;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .tab {
+        padding: 12px 24px;
+        border: none;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+
+    .tab:hover {
+        background: rgba(0, 120, 255, 0.1);
+    }
+
+    .tab.active {
+        background: var(--accent);
+        color: white;
+    }
+
+    .tab-content {
+        display: none;
+        width: 100%;
+        max-width: 600px;
+    }
+
+    .tab-content.active {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    /* ========== INSTRUMENTOS ========== */
+    .dropzone {
+        width: 100%;
+        max-width: 400px;
+        height: 250px;
+        border: 3px dashed var(--accent);
+        border-radius: 15px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: var(--accent);
+        cursor: not-allowed;
+        transition: 0.25s;
+        font-size: 18px;
+        text-align: center;
+        opacity: 0.6;
+    }
+
+    .dropzone.activa {
+        cursor: pointer;
+        opacity: 1;
+    }
+
+    .dropzone.activa:hover {
+        background-color: rgba(0, 120, 255, 0.1);
+        transform: scale(1.02);
+    }
+
+    #preview {
+        margin-top: 20px;
+        max-width: 90%;
+        max-height: 300px;
+        border-radius: 12px;
+        display: none;
+        box-shadow: 0px 4px 20px rgba(0,0,0,0.2);
+    }
+
+    /* ========== TEXTO ========== */
+    .text-input-container {
+        width: 100%;
+        max-width: 500px;
+    }
+
+    .text-input {
+        width: 100%;
+        padding: 15px;
+        border: 2px solid var(--accent);
+        border-radius: 12px;
+        background: var(--card);
+        color: var(--text);
+        font-size: 16px;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 120px;
+        transition: all 0.3s;
+    }
+
+    .text-input:focus {
+        outline: none;
+        border-color: var(--accent2);
+        box-shadow: 0 0 0 3px rgba(0, 120, 255, 0.1);
+    }
+
+    .text-input::placeholder {
+        color: var(--text);
+        opacity: 0.5;
+    }
+
+    .analyze-btn {
+        margin-top: 15px;
+        padding: 12px 32px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 4px 15px rgba(0, 120, 255, 0.3);
+    }
+
+    .analyze-btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 120, 255, 0.4);
+    }
+
+    .analyze-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    /* ========== COMUNES ========== */
+    .loader {
+        margin: 20px auto;
+        width: 45px;
+        height: 45px;
+        border: 5px solid #ccc;
+        border-top: 5px solid var(--accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        display: none;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .resultado {
+        margin-top: 20px;
+        font-size: 20px;
+        font-weight: bold;
+        text-align: center;
+        min-height: 30px;
+    }
+
+    .circle {
+        margin: 20px auto;
+        width: 140px;
+        height: 140px;
+        border-radius: 50%;
+        background: conic-gradient(var(--accent) 0deg, var(--card) 0deg);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        font-size: 26px;
+        font-weight: bold;
+        color: var(--accent);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+
+    .probsTable {
+        margin-top: 20px;
+        width: 100%;
+        max-width: 400px;
+        border-collapse: collapse;
+        display: none;
+        background: var(--card);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .probsTable td, .probsTable th {
+        border-bottom: 1px solid rgba(128, 128, 128, 0.2);
+        padding: 12px 16px;
+        text-align: left;
+    }
+
+    .probsTable th {
+        background: rgba(0, 120, 255, 0.1);
+        font-weight: 600;
+    }
+
+    .probsTable tr:hover {
+        background-color: rgba(0,0,0,0.05);
+    }
+
+    .probsTable tr:last-child td {
+        border-bottom: none;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        margin-top: 10px;
+    }
+
+    .status-badge.loading {
+        background: rgba(255, 165, 0, 0.2);
+        color: orange;
+    }
+
+    .status-badge.ready {
+        background: rgba(0, 255, 0, 0.2);
+        color: #00cc00;
+    }
+
+    .status-badge.error {
+        background: rgba(255, 0, 0, 0.2);
+        color: #ff4444;
+    }
+
+    .emoji-result {
+        font-size: 48px;
+        margin: 10px 0;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>🤖 Clasificadores IA</h1>
+<p class="subtitle">Clasificador de Instrumentos y Análisis de Texto</p>
+
+<div class="tabs">
+    <button class="tab active" onclick="cambiarTab('instrumentos')">🎵 Instrumentos</button>
+    <button class="tab" onclick="cambiarTab('texto')">📝 Texto</button>
+</div>
+
+<!-- ========== TAB: INSTRUMENTOS ========== -->
+<div class="tab-content active" id="tab-instrumentos">
+    <div class="dropzone" id="dropzone">
+        <span id="dropzoneText">Cargando modelo...<br>Por favor espera</span>
+    </div>
+    
+    <input type="file" id="imageUpload" accept="image/*" style="display:none;">
+    
+    <div class="loader" id="loaderImg"></div>
+    
+    <img id="preview">
+    
+    <div class="circle" id="circleImg"></div>
+    
+    <p class="resultado" id="resultadoImg"></p>
+    
+    <table class="probsTable" id="probsTableImg"></table>
+</div>
+
+<!-- ========== TAB: TEXTO ========== -->
+<div class="tab-content" id="tab-texto">
+    <div class="text-input-container">
+        <textarea 
+            class="text-input" 
+            id="textInput" 
+            placeholder="Escribe algo en inglés... Ejemplo: 'This is hilarious!'"
+            disabled
+        ></textarea>
+        <button class="analyze-btn" id="analyzeBtn" onclick="analizarTexto()" disabled>
+            Analizar Texto
+        </button>
+    </div>
+    
+    <div class="loader" id="loaderTxt"></div>
+    
+    <div class="emoji-result" id="emojiResult"></div>
+    
+    <div class="circle" id="circleTxt"></div>
+    
+    <p class="resultado" id="resultadoTxt"></p>
+    
+    <table class="probsTable" id="probsTableTxt"></table>
+</div>
+
+<div style="margin-top: 30px; text-align: center;">
+    <span class="status-badge loading" id="statusBadge">⏳ Cargando modelos...</span>
+</div>
+
+<script>
+// ============================
+// VARIABLES GLOBALES
+// ============================
+let modeloImg = null;
+let modeloTxt = null;
+let tokenizer = null;
+let imgListo = false;
+let txtListo = false;
+
+let classNamesImg = [];
+let imgSize = 160;
+
+let maxLen = 100;
+let vocabSize = 10000;
+
+// ============================
+// CAMBIAR TABS
+// ============================
+function cambiarTab(tabName) {
+    // Tabs
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    // Content
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById(`tab-${tabName}`).classList.add('active');
+}
+
+// ============================
+// CARGAR MODELO DE INSTRUMENTOS
+// ============================
+async function cargarModeloImg() {
+    try {
+        const res = await fetch("./model_tfjs/info_modelo.json");
+        const data = await res.json();
+        classNamesImg = data.class_names;
+        imgSize = data.img_size;
+        
+        modeloImg = await tf.loadLayersModel("./model_tfjs/model.json");
+        imgListo = true;
+        
+        document.getElementById("dropzoneText").textContent = "Arrastra una imagen aquí\no haz clic para seleccionar";
+        document.getElementById("dropzone").classList.add("activa");
+        document.getElementById("resultadoImg").textContent = "✔ Modelo de instrumentos listo";
+        
+        console.log("✅ Modelo de instrumentos cargado");
+        actualizarEstado();
+    } catch (error) {
+        console.error("Error cargando modelo de instrumentos:", error);
+        document.getElementById("resultadoImg").textContent = "❌ Error al cargar modelo de instrumentos";
+        document.getElementById("statusBadge").textContent = "❌ Error";
+        document.getElementById("statusBadge").className = "status-badge error";
+    }
+}
+
+// ============================
+// CARGAR MODELO DE TEXTO
+// ============================
+async function cargarModeloTxt() {
+    try {
+        // Cargar configuración
+        const configRes = await fetch("./modelo_texto_web/config_texto.json");
+        const config = await configRes.json();
+        maxLen = config.max_length;
+        vocabSize = config.vocab_size;
+        
+        // Cargar tokenizer
+        const tokenizerRes = await fetch("./modelo_texto_web/tokenizer.json");
+        tokenizer = await tokenizerRes.json();
+        
+        // Cargar modelo
+        modeloTxt = await tf.loadLayersModel("./modelo_texto_web/model.json");
+        txtListo = true;
+        
+        document.getElementById("textInput").disabled = false;
+        document.getElementById("analyzeBtn").disabled = false;
+        document.getElementById("resultadoTxt").textContent = "✔ Modelo de texto listo";
+        
+        console.log("✅ Modelo de texto cargado");
+        actualizarEstado();
+    } catch (error) {
+        console.error("Error cargando modelo de texto:", error);
+        document.getElementById("resultadoTxt").textContent = "❌ Error al cargar modelo de texto";
+        document.getElementById("statusBadge").textContent = "❌ Error";
+        document.getElementById("statusBadge").className = "status-badge error";
+    }
+}
+
+// ============================
+// ACTUALIZAR ESTADO
+// ============================
+function actualizarEstado() {
+    const badge = document.getElementById("statusBadge");
+    
+    if (imgListo && txtListo) {
+        badge.textContent = "✅ Todos los modelos listos";
+        badge.className = "status-badge ready";
+    } else if (imgListo || txtListo) {
+        badge.textContent = "⏳ Cargando modelos...";
+        badge.className = "status-badge loading";
+    }
+}
+
+// Cargar ambos modelos al iniciar
+cargarModeloImg();
+cargarModeloTxt();
+
+// ============================
+// CLASIFICAR IMAGEN
+// ============================
+async function clasificarImagen(img) {
+    if (!imgListo || !modeloImg) {
+        alert("El modelo aún no está listo. Espera unos segundos.");
+        return;
+    }
+
+    const loader = document.getElementById("loaderImg");
+    const circle = document.getElementById("circleImg");
+    
+    loader.style.display = "block";
+    circle.style.display = "none";
+
+    const tensor = tf.browser.fromPixels(img)
+        .resizeNearestNeighbor([imgSize, imgSize])
+        .toFloat()
+        .expandDims(0);
+
+    const pred = await modeloImg.predict(tensor).data();
+    tensor.dispose();
+    
+    loader.style.display = "none";
+
+    const maxIdx = pred.indexOf(Math.max(...pred));
+    const maxProb = pred[maxIdx];
+
+    document.getElementById("resultadoImg").textContent =
+        `🎯 Predicción: ${classNamesImg[maxIdx]} (${(maxProb * 100).toFixed(1)}%)`;
+
+    // Círculo
+    circle.style.display = "flex";
+    circle.textContent = `${(maxProb * 100).toFixed(0)}%`;
+    circle.style.background = `conic-gradient(var(--accent) ${(maxProb * 360)}deg, var(--card) 0deg)`;
+
+    // Tabla
+    const table = document.getElementById("probsTableImg");
+    table.style.display = "table";
+    
+    const sortedProbs = Array.from(pred).map((p, i) => ({
+        clase: classNamesImg[i],
+        prob: p
+    })).sort((a, b) => b.prob - a.prob);
+
+    let tableHTML = '<tr><th>Instrumento</th><th>Probabilidad</th></tr>';
+    
+    sortedProbs.forEach(item => {
+        const isMax = item.prob === maxProb;
+        tableHTML += `
+            <tr style="${isMax ? 'background-color: rgba(0,120,255,0.2); font-weight: bold;' : ''}">
+                <td>${item.clase}</td>
+                <td>${(item.prob * 100).toFixed(1)}%</td>
+            </tr>
+        `;
+    });
+    
+    table.innerHTML = tableHTML;
+}
+
+// ============================
+// DRAG & DROP IMÁGENES
+// ============================
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("imageUpload");
+
+dropzone.onclick = () => {
+    if (!imgListo) return;
+    fileInput.click();
+};
+
+dropzone.ondragover = (e) => {
+    if (!imgListo) return;
+    e.preventDefault();
+    dropzone.style.background = "rgba(0,120,255,0.2)";
+};
+
+dropzone.ondragleave = () => {
+    if (!imgListo) return;
+    dropzone.style.background = "transparent";
+};
+
+dropzone.ondrop = (e) => {
+    if (!imgListo) return;
+    e.preventDefault();
+    dropzone.style.background = "transparent";
+    const file = e.dataTransfer.files[0];
+    procesarArchivo(file);
+};
+
+fileInput.onchange = () => {
+    const file = fileInput.files[0];
+    procesarArchivo(file);
+};
+
+function procesarArchivo(file) {
+    if (!file || !imgListo) return;
+
+    const preview = document.getElementById("preview");
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        preview.src = ev.target.result;
+        preview.style.display = "block";
+        preview.onload = () => clasificarImagen(preview);
+    };
+    reader.readAsDataURL(file);
+}
+
+// ============================
+// ANALIZAR TEXTO
+// ============================
+function tokenizarTexto(texto) {
+    // Convertir a minúsculas y separar por espacios
+    const palabras = texto.toLowerCase().split(/\s+/);
+    
+    // Convertir palabras a índices
+    const secuencia = palabras.map(palabra => {
+        return tokenizer.word_index[palabra] || 0; // 0 para palabras desconocidas
+    });
+    
+    // Padding/truncate a maxLen
+    const resultado = new Array(maxLen).fill(0);
+    for (let i = 0; i < Math.min(secuencia.length, maxLen); i++) {
+        resultado[i] = secuencia[i];
+    }
+    
+    return resultado;
+}
+
+async function analizarTexto() {
+    if (!txtListo || !modeloTxt) {
+        alert("El modelo de texto aún no está listo.");
+        return;
+    }
+
+    const texto = document.getElementById("textInput").value.trim();
+    
+    if (!texto) {
+        alert("Por favor escribe algo primero.");
+        return;
+    }
+
+    const loader = document.getElementById("loaderTxt");
+    const circle = document.getElementById("circleTxt");
+    const emoji = document.getElementById("emojiResult");
+    
+    loader.style.display = "block";
+    circle.style.display = "none";
+    emoji.textContent = "";
+
+    // Tokenizar
+    const secuencia = tokenizarTexto(texto);
+    const tensor = tf.tensor2d([secuencia]);
+
+    // Predecir
+    const pred = await modeloTxt.predict(tensor).data();
+    tensor.dispose();
+    
+    loader.style.display = "none";
+
+    // Interpretar resultado (asumiendo clasificación binaria)
+    const esDivertido = pred[0] > 0.5;
+    const probabilidad = esDivertido ? pred[0] : (1 - pred[0]);
+    const etiqueta = esDivertido ? "Divertido 😂" : "No Divertido 😐";
+
+    // Emoji
+    emoji.textContent = esDivertido ? "😂" : "😐";
+
+    // Resultado
+    document.getElementById("resultadoTxt").textContent =
+        `📊 ${etiqueta} (${(probabilidad * 100).toFixed(1)}%)`;
+
+    // Círculo
+    circle.style.display = "flex";
+    circle.textContent = `${(probabilidad * 100).toFixed(0)}%`;
+    circle.style.background = `conic-gradient(var(--accent2) ${(probabilidad * 360)}deg, var(--card) 0deg)`;
+
+    // Tabla
+    const table = document.getElementById("probsTableTxt");
+    table.style.display = "table";
+    
+    table.innerHTML = `
+        <tr><th>Clasificación</th><th>Probabilidad</th></tr>
+        <tr style="${esDivertido ? 'background-color: rgba(255,107,53,0.2); font-weight: bold;' : ''}">
+            <td>😂 Divertido</td>
+            <td>${(pred[0] * 100).toFixed(1)}%</td>
+        </tr>
+        <tr style="${!esDivertido ? 'background-color: rgba(255,107,53,0.2); font-weight: bold;' : ''}">
+            <td>😐 No Divertido</td>
+            <td>${((1 - pred[0]) * 100).toFixed(1)}%</td>
+        </tr>
+    `;
+}
+
+// Enter para analizar
+document.getElementById("textInput").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.ctrlKey) {
+        analizarTexto();
+    }
+});
+</script>
+
+</body>
+</html>

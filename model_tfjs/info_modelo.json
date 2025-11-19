@@ -1,0 +1,16 @@
+{
+  "class_names": [
+    "Accordion",
+    "Drum",
+    "Piano",
+    "Violin",
+    "flute"
+  ],
+  "img_size": 160,
+  "input_shape": [
+    null,
+    160,
+    160,
+    3
+  ]
+}
